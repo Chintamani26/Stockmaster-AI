@@ -5,19 +5,22 @@ export interface Product {
   category: string;
   qty: number;
   location: string;
+  minStock?: number; // For low stock alerts
 }
 
 export interface Log {
   id: number;
-  action: string;
+  action: string; // RECEIPT, DELIVERY, TRANSFER, ADJUSTMENT
   details: string;
   timestamp: string;
+  type: 'IN' | 'OUT' | 'MOVE' | 'ADJUST' | 'INFO';
 }
 
 export enum ToolAction {
-  ADD_STOCK = 'ADD_STOCK',
-  MOVE_STOCK = 'MOVE_STOCK',
-  ADJUST_STOCK = 'ADJUST_STOCK',
+  ADD_STOCK = 'ADD_STOCK', // Receipt
+  DELIVER_STOCK = 'DELIVER_STOCK', // Delivery Order
+  MOVE_STOCK = 'MOVE_STOCK', // Internal Transfer
+  ADJUST_STOCK = 'ADJUST_STOCK', // Inventory Adjustment
   REPORT = 'REPORT',
   UNKNOWN = 'UNKNOWN'
 }

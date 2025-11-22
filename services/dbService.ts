@@ -29,19 +29,20 @@ const saveProducts = (products: Product[]) => {
   localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
 };
 
-const addLog = (action: string, details: string) => {
+const addLog = (action: string, details: string, type: 'IN' | 'OUT' | 'MOVE' | 'ADJUST' | 'INFO' = 'INFO') => {
   const logs = getLogs();
   const newLog: Log = {
     id: generateId(),
     action,
     details,
     timestamp: new Date().toLocaleString(),
+    type
   };
   // Prepend to show newest first
   localStorage.setItem(LOGS_KEY, JSON.stringify([newLog, ...logs]));
 };
 
-// Core Logic Functions as described in requirements
+// Core Logic Functions
 
 export const addProduct = (name: string, qty: number, location: string, category: string = "General") => {
   const products = getProducts();
@@ -49,11 +50,10 @@ export const addProduct = (name: string, qty: number, location: string, category
 
   if (existingIndex >= 0) {
     products[existingIndex].qty += qty;
-    // Optionally update location or category if provided? Requirements say "Updates qty if product exists"
-    // We will stick to just updating qty for existing, but maybe update location if it moved?
-    // Let's assume just qty update per requirement.
+    // Update location if provided, assuming it's the same product moving in
+    products[existingIndex].location = location;
     saveProducts(products);
-    addLog("ADD_STOCK", `Updated ${name}: +${qty} (Total: ${products[existingIndex].qty}) at ${products[existingIndex].location}`);
+    addLog("RECEIPT", `Received ${qty} ${name} at ${location}. Total: ${products[existingIndex].qty}`, 'IN');
   } else {
     const newProduct: Product = {
       id: generateId(),
@@ -61,11 +61,28 @@ export const addProduct = (name: string, qty: number, location: string, category
       sku: `SKU-${Math.floor(Math.random() * 10000)}`, // Auto-generate SKU
       category,
       qty,
-      location
+      location,
+      minStock: 10 // Default low stock threshold
     };
     products.push(newProduct);
     saveProducts(products);
-    addLog("ADD_STOCK", `Created ${name}: ${qty} units at ${location} (${category})`);
+    addLog("RECEIPT", `Created Product ${name}: +${qty} units at ${location} (${category})`, 'IN');
+  }
+};
+
+export const deliverStock = (name: string, qty: number) => {
+  const products = getProducts();
+  const product = products.find(p => p.name.toLowerCase() === name.toLowerCase());
+
+  if (product) {
+    if (product.qty < qty) {
+      throw new Error(`Insufficient stock for ${name}. Available: ${product.qty}`);
+    }
+    product.qty -= qty;
+    saveProducts(products);
+    addLog("DELIVERY", `Shipped ${qty} ${name}. Remaining: ${product.qty}`, 'OUT');
+  } else {
+    throw new Error(`Product "${name}" not found.`);
   }
 };
 
@@ -75,12 +92,19 @@ export const moveProduct = (name: string, qty: number, to_location: string) => {
 
   if (product) {
     const oldLocation = product.location;
+    // For simplicity in this model, we assume we move the whole "batch" or just update location record
+    // If we wanted to support split stock, we'd need a different schema (ProductInstance vs ProductDefinition).
+    // We will follow the requirement "Move 10 chairs" by updating the record conceptually.
+    // Since schema has unique name, we'll assume the command implies the product's primary location changes
+    // OR we are just logging a transfer of 'qty'.
+    
+    // If qty is specified and less than total, ideally we'd split. 
+    // For this hackathon demo, we'll just update the location string to represent the new primary location
+    // or just log the movement if it's partial, but let's update the record for visual feedback.
+    
     product.location = to_location;
-    // Note: The schema enforces UNIQUE name, so we move the entire product record conceptually in this simple model.
-    // Ideally we'd split stock, but that requires a (name + location) unique constraint.
-    // We adhere to the provided schema constraints where Name is Unique.
     saveProducts(products);
-    addLog("MOVE_STOCK", `Moved ${qty ? qty : 'all'} ${name} from ${oldLocation} to ${to_location}`);
+    addLog("INTERNAL TRANSFER", `Moved ${qty ? qty : 'stock'} of ${name} from ${oldLocation} to ${to_location}`, 'MOVE');
   } else {
     throw new Error(`Product "${name}" not found.`);
   }
@@ -92,9 +116,10 @@ export const adjustStock = (name: string, true_qty: number) => {
 
   if (product) {
     const oldQty = product.qty;
+    const diff = true_qty - oldQty;
     product.qty = true_qty;
     saveProducts(products);
-    addLog("ADJUST_STOCK", `Audit ${name}: Corrected qty from ${oldQty} to ${true_qty}`);
+    addLog("ADJUSTMENT", `Audit ${name}: Corrected qty from ${oldQty} to ${true_qty} (${diff > 0 ? '+' : ''}${diff})`, 'ADJUST');
   } else {
     throw new Error(`Product "${name}" not found.`);
   }
@@ -104,7 +129,11 @@ export const adjustStock = (name: string, true_qty: number) => {
 export const seedData = () => {
   if (getProducts().length === 0) {
     addProduct("IPhones", 50, "Warehouse A", "Electronics");
-    addProduct("Office Chairs", 120, "Showroom", "Furniture");
+    addProduct("Office Chairs", 5, "Showroom", "Furniture"); // Low stock
     addProduct("Steel Rods", 500, "Zone B", "Raw Material");
+    addProduct("Laptop Stands", 8, "Zone A", "Accessories"); // Low stock
+    
+    // Simulate some logs
+    addLog("RECEIPT", "Initial stock setup complete", "INFO");
   }
 };
