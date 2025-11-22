@@ -2,7 +2,7 @@
 
 This contains everything you need to run your app locally.
 
-View your app in AI Studio: https://ai.studio/apps/drive/11iACAcpLjFpedNcMY59Q_cWacLkQg2dq
+View App : https://stockmaster-ai-511287961006.us-west1.run.app
 
 ## Run Locally
 
